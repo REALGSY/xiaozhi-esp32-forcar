@@ -8,6 +8,7 @@ sdkconfig.old
 sdkconfig
 dependencies.lock
 .env
+.history
 releases/
 main/assets/lang_config.h
 main/mmap_generate_emoji.h
