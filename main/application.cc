@@ -596,7 +596,7 @@ void Application::MainEventLoop() {
                 task();
             }
         }
-
+        printf("这是测试环节!\n");
         if (bits & MAIN_EVENT_CLOCK_TICK) {
             clock_ticks_++;
             auto display = Board::GetInstance().GetDisplay();
