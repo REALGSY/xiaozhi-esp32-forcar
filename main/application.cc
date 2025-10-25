@@ -16,6 +16,9 @@
 #include <driver/gpio.h>
 #include <arpa/inet.h>
 #include <font_awesome.h>
+#include <driver/uart.h>
+
+#define SLEEP_BUF_SIZE (20)
 
 #define TAG "Application"
 
@@ -392,7 +395,7 @@ void Application::Start() {
 
     // Check for new firmware version or get the MQTT broker address
     Ota ota;
-    //CheckNewVersion(ota);
+    CheckNewVersion(ota);
 
     // Initialize the protocol
     display->SetStatus(Lang::Strings::LOADING_PROTOCOL);
@@ -555,6 +558,11 @@ void Application::Schedule(std::function<void()> callback) {
 // The Main Event Loop controls the chat state and websocket connection
 // If other tasks need to access the websocket or chat state,
 // they should use Schedule to call this function
+
+//test
+int sleep_flag = 0 ;
+int sleep_flag_cout = 0;
+//
 void Application::MainEventLoop() {
     while (true) {
         auto bits = xEventGroupWaitBits(event_group_, MAIN_EVENT_SCHEDULE |
@@ -596,6 +604,7 @@ void Application::MainEventLoop() {
                 task();
             }
         }
+
         printf("这是测试环节!\n");
         if (bits & MAIN_EVENT_CLOCK_TICK) {
             clock_ticks_++;
@@ -609,6 +618,51 @@ void Application::MainEventLoop() {
                 SystemInfo::PrintHeapStats();
             }
         }
+        //这是在提示正在睡觉，需要增加中断
+        //sleep_flag++;
+        
+        if(sleep_flag == 1)
+        {
+        std::string not_sleep = Lang::Strings::DONT_SLEEP;
+        //SetDeviceState(kDeviceStateAudioTesting);
+        not_sleep += "\n\n";
+        auto& application = Application::GetInstance();
+        //application.SetDeviceState(kDeviceStateSpeaking);
+        application.Alert(Lang::Strings::DONT_SLEEP, not_sleep.c_str(), "sleepy", Lang::Sounds::OGG_MUST_SLEEP);
+        sleep_flag_cout ++ ;
+        //SetDeviceState(kDeviceStateAudioTesting);
+        if(sleep_flag_cout > 3)
+        {
+         sleep_flag = 0; 
+         sleep_flag_cout = 0;
+        }
+        vTaskDelay(pdMS_TO_TICKS(500));
+        }
+        
+        uint8_t sleep_data[SLEEP_BUF_SIZE];
+        int len = uart_read_bytes(UART_NUM_0, sleep_data, SLEEP_BUF_SIZE, 100 / portTICK_PERIOD_MS);
+        // if(len != 0)
+        // {
+        //     sleep_flag = 1;
+        // }
+        if (len > 0) {
+            char temp[SLEEP_BUF_SIZE + 1] = {0};
+            memcpy(temp, sleep_data, len); // 复制数据到临时缓冲区
+
+            if (strstr(temp, "sleep") != NULL) {
+                printf("Detected 'sleep'! Flag set to 0.\n");
+                sleep_flag = 1;
+            }
+        }
+
+        printf("minizhi:%d",sleep_flag);
+        // uint8_t buf[128];
+        // int len = usb_serial_jtag_read_bytes(buf, sizeof(buf), 20 / portTICK_PERIOD_MS);
+        // if (len > 0) {
+        //     ESP_LOGI(TAG, "Received via USB CDC: %.*s", len, buf);
+        // }
+        
+
     }
 }
 

@@ -53,7 +53,7 @@ void WifiBoard::EnterWifiConfigMode() {
     
     // 播报配置 WiFi 的提示OGG_MUST_OUTPUT
     // application.Alert(Lang::Strings::WIFI_CONFIG_MODE, hint.c_str(), "gear", Lang::Sounds::OGG_WIFICONFIG);
-    application.Alert(Lang::Strings::WIFI_CONFIG_MODE, hint.c_str(), "gear", Lang::Sounds::OGG_MUST);
+    application.Alert(Lang::Strings::WIFI_CONFIG_MODE, hint.c_str(), "sleepy", Lang::Sounds::OGG_MUST);
     #if CONFIG_USE_ACOUSTIC_WIFI_PROVISIONING
     auto display = Board::GetInstance().GetDisplay();
     auto codec = Board::GetInstance().GetAudioCodec();

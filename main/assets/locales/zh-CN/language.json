@@ -48,6 +48,7 @@
         "RTC_MODE_ON": "AEC 开启",
         "DOWNLOAD_ASSETS_FAILED": "下载资源失败",
         "LOADING_ASSETS": "加载资源...",
+        "DONT_SLEEP": "开车请勿睡觉!",
         "PLEASE_WAIT": "请稍候...",
         "FOUND_NEW_ASSETS": "发现新资源: %s",
         "HELLO_MY_FRIEND": "你好，我的朋友！"
