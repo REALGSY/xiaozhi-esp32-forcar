@@ -525,7 +525,7 @@ public:
         InitializeI2c();
         InitializeSpi();
         InitializeExpander();
-        InitializeCmd();  //工厂生产测试使用
+        //InitializeCmd();  //工厂生产测试使用
         InitializeButton();
         InitializeKnob();
         Initializespd2010Display();

@@ -17,8 +17,9 @@
 #include <arpa/inet.h>
 #include <font_awesome.h>
 #include <driver/uart.h>
+#include "freertos/semphr.h"
 
-#define SLEEP_BUF_SIZE (20)
+#define SLEEP_BUF_SIZE (1024)
 
 #define TAG "Application"
 
@@ -347,6 +348,17 @@ void Application::StopListening() {
         }
     });
 }
+void uart_init() {
+    uart_config_t uart_config = {
+        .baud_rate = 115200,       // 波特率
+        .data_bits = UART_DATA_8_BITS,
+        .parity = UART_PARITY_DISABLE,
+        .stop_bits = UART_STOP_BITS_1,
+        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+    };
+    uart_param_config(UART_NUM_0, &uart_config);
+    uart_driver_install(UART_NUM_0, 1024, 1024, 0, NULL, 0); // 必须调用！
+}
 
 void Application::Start() {
     auto& board = Board::GetInstance();
@@ -374,12 +386,17 @@ void Application::Start() {
         xEventGroupSetBits(event_group_, MAIN_EVENT_VAD_CHANGE);
     };
     audio_service_.SetCallbacks(callbacks);
-
+    uart_init();
     // Start the main event loop task with priority 3
     xTaskCreate([](void* arg) {
         ((Application*)arg)->MainEventLoop();
         vTaskDelete(NULL);
     }, "main_event_loop", 2048 * 4, this, 3, &main_event_loop_task_handle_);
+
+    // xTaskCreate([](void* arg) {
+    //     ((Application*)arg)->Sleep_Monitoring();
+    //     vTaskDelete(NULL);
+    // }, "Sleep_Monitoring_50ms", 2048, this, 3,NULL);
 
     /* Start the clock timer to update the status bar */
     esp_timer_start_periodic(clock_timer_handle_, 1000000);
@@ -544,6 +561,7 @@ void Application::Start() {
         // Play the success sound to indicate the device is ready
         audio_service_.PlaySound(Lang::Sounds::OGG_SUCCESS);
     }
+
 }
 
 // Add a async task to MainLoop
@@ -563,6 +581,54 @@ void Application::Schedule(std::function<void()> callback) {
 int sleep_flag = 0 ;
 int sleep_flag_cout = 0;
 //
+void Application::Sleep_Monitoring(){
+        while (1) {
+        if(sleep_flag == 1)
+        {
+        std::string not_sleep = Lang::Strings::DONT_SLEEP;
+        //SetDeviceState(kDeviceStateAudioTesting);
+        not_sleep += "\n\n";
+        auto& application = Application::GetInstance();
+        //application.SetDeviceState(kDeviceStateSpeaking);
+        application.Alert(Lang::Strings::DONT_SLEEP, not_sleep.c_str(), "sleepy", Lang::Sounds::OGG_MUST_SLEEP);
+        sleep_flag_cout ++ ;
+        //SetDeviceState(kDeviceStateAudioTesting);
+        if(sleep_flag_cout > 3)
+        {
+         sleep_flag = 0; 
+         sleep_flag_cout = 0;
+        }
+        vTaskDelay(pdMS_TO_TICKS(500));
+        }
+        
+        uint8_t sleep_data[SLEEP_BUF_SIZE];
+        int len = uart_read_bytes(UART_NUM_0, sleep_data, SLEEP_BUF_SIZE, 200 / portTICK_PERIOD_MS);
+        printf("print:%d\n", len);
+        // if(len != 0)
+        // {
+        //     sleep_flag = 1;
+        // }
+        if (len > 0) {
+            char temp[SLEEP_BUF_SIZE + 1] = {0};
+            memcpy(temp, sleep_data, len); // 复制数据到临时缓冲区
+
+            if (strstr(temp, "sleep\n") != NULL) {
+                printf("来啦！\n");
+                printf("Detected 'sleep'! Flag set to 0.\n");
+                sleep_flag = 1;
+            }
+        }
+
+        //printf("minizhi:%d\n",sleep_flag);
+        // printf("50ms tick! Time: %lld ms\n", esp_timer_get_time() / 1000);
+
+
+        vTaskDelay(pdMS_TO_TICKS(200));
+    }
+}
+
+SemaphoreHandle_t uart_mutex = xSemaphoreCreateMutex();  // 全局变量
+
 void Application::MainEventLoop() {
     while (true) {
         auto bits = xEventGroupWaitBits(event_group_, MAIN_EVENT_SCHEDULE |
@@ -605,7 +671,7 @@ void Application::MainEventLoop() {
             }
         }
 
-        printf("这是测试环节!\n");
+        //printf("这是测试环节!\n");
         if (bits & MAIN_EVENT_CLOCK_TICK) {
             clock_ticks_++;
             auto display = Board::GetInstance().GetDisplay();
@@ -636,26 +702,40 @@ void Application::MainEventLoop() {
          sleep_flag = 0; 
          sleep_flag_cout = 0;
         }
-        vTaskDelay(pdMS_TO_TICKS(500));
+        vTaskDelay(pdMS_TO_TICKS(200));
         }
-        
+
+        //esp_intr_dump(stdout);
         uint8_t sleep_data[SLEEP_BUF_SIZE];
-        int len = uart_read_bytes(UART_NUM_0, sleep_data, SLEEP_BUF_SIZE, 100 / portTICK_PERIOD_MS);
-        // if(len != 0)
-        // {
-        //     sleep_flag = 1;
-        // }
-        if (len > 0) {
+        // 在读取 UART 前加锁
+        // if (xSemaphoreTake(uart_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            int len = uart_read_bytes(UART_NUM_0, sleep_data, SLEEP_BUF_SIZE, 200 / portTICK_PERIOD_MS);
+            //xSemaphoreGive(uart_mutex);  // 释放锁
+            printf("print:%d\n",len);
+            if (len > 0) {
             char temp[SLEEP_BUF_SIZE + 1] = {0};
             memcpy(temp, sleep_data, len); // 复制数据到临时缓冲区
 
             if (strstr(temp, "sleep") != NULL) {
+                printf("来啦！");
                 printf("Detected 'sleep'! Flag set to 0.\n");
                 sleep_flag = 1;
             }
-        }
+            }
+            // if (len > 0) {
+            //     printf("print:%d\n",len);
+            // }
+        // }
 
-        printf("minizhi:%d",sleep_flag);
+        // int len = uart_read_bytes(UART_NUM_0, sleep_data, SLEEP_BUF_SIZE, 200 / portTICK_PERIOD_MS);
+        // printf("print:%d\n",len);
+        // if(len != 0)
+        // {
+        //     sleep_flag = 1;
+        // }
+
+
+        // printf("minizhi:%d",sleep_flag);
         // uint8_t buf[128];
         // int len = usb_serial_jtag_read_bytes(buf, sizeof(buf), 20 / portTICK_PERIOD_MS);
         // if (len > 0) {

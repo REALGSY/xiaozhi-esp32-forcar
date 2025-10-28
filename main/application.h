@@ -41,7 +41,7 @@ public:
     // 删除拷贝构造函数和赋值运算符
     Application(const Application&) = delete;
     Application& operator=(const Application&) = delete;
-
+    void Sleep_Monitoring();
     void Start();
     void MainEventLoop();
     DeviceState GetDeviceState() const { return device_state_; }

@@ -25,7 +25,7 @@ extern "C" void app_main(void)
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
-
+    //esp_log_level_set("*", ESP_LOG_NONE);
     // Launch the application
     auto& app = Application::GetInstance();
     app.Start();
